@@ -1,0 +1,10 @@
+{
+  "title": "Molopony",
+  "description": "Le Monopoly du gang : achète les rues, ruine tes potes et finis seul sur le plateau !",
+  "author": "Léo",
+  "category": "Plateau",
+  "emoji": "🎩",
+  "joueurs": "2-8",
+  "classement": "victoires",
+  "image": "cover.png"
+}

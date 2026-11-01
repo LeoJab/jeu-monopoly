@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Molopony</title>
+<link rel="stylesheet" href="style.css">
+<script src="/_sdk.js"></script>
+</head>
+<body>
+
+<!-- Accueil / salle d'attente -->
+<section id="lobby">
+  <div class="panel">
+    <div class="logo"><div class="cd"></div><h1>MOLOPONY</h1></div>
+    <p class="sub" style="text-align:center">Le Monopoly du gang : achète, ruine tes potes, ris.</p>
+
+    <div id="menu">
+      <div class="tabs">
+        <button class="btn on" id="tabOnline">🌐 En ligne</button>
+        <button class="btn alt" id="tabLocal">📱 Même écran</button>
+      </div>
+
+      <div id="paneOnline">
+        <label class="sub">Ton pseudo</label>
+        <input type="text" id="pseudo" maxlength="20" placeholder="Pseudo">
+        <label class="sub">Code de la salle</label>
+        <input type="text" id="code" maxlength="8" placeholder="ABCD" style="text-transform:uppercase">
+        <div class="row">
+          <button class="btn go" id="btnCreate">Créer une salle</button>
+          <button class="btn" id="btnJoin">Rejoindre</button>
+        </div>
+        <p class="sub" id="lobbyErr" style="color:#e0262b"></p>
+      </div>
+
+      <div id="paneLocal" hidden>
+        <p class="sub">2 à 8 joueurs sur le même appareil.</p>
+        <div class="plist" id="localList"></div>
+        <div class="row">
+          <button class="btn alt" id="btnAddLocal">+ Joueur</button>
+          <button class="btn go" id="btnStartLocal">Lancer</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="room" hidden>
+      <h3>Salle <span id="roomCode"></span></h3>
+      <p class="sub">Envoie le code ou utilise « Inviter » dans la barre du hub.</p>
+      <div class="plist" id="roomList"></div>
+      <div class="row">
+        <button class="btn go" id="btnStart" hidden>Lancer la partie</button>
+        <button class="btn alt" id="btnLeave">Quitter</button>
+      </div>
+      <p class="sub" id="roomHint"></p>
+    </div>
+  </div>
+</section>
+
+<!-- Partie -->
+<section id="game" hidden>
+  <div id="boardWrap"><div id="board"></div></div>
+  <aside id="side">
+    <div class="card topbar">
+      <b class="grow" id="whoTurn">Molopony</b>
+      <button class="btn sm alt" id="btnSound" title="Son">🔊</button>
+      <button class="btn sm alt" id="btnMine">📜 Mes terrains</button>
+    </div>
+    <div class="card" id="players"></div>
+    <div class="card" id="actions"></div>
+    <div class="card" id="log"></div>
+  </aside>
+</section>
+
+<div id="modal" hidden></div>
+<div id="flash"></div>
+<div id="banner"></div>
+<canvas id="fx"></canvas>
+
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script src="fx.js"></script>
+<script src="ui.js"></script>
+<script src="modals.js"></script>
+<script src="net.js"></script>
+</body>
+</html>
