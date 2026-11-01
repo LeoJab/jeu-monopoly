@@ -57,3 +57,81 @@
   .sq:hover { transform: none; }
 }
 @media (max-width: 420px) { .pl .pips { display: none; } .pl { min-width: 150px; } }
+
+/* ===== Dés à points, lancer 3D ===== */
+.dice { perspective: 700px; gap: 3cqw; margin-top: .6cqw; }
+.die { position: relative; width: 10cqw; height: 10cqw; border-radius: 2cqw; font-size: 0; display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 1.4cqw; gap: .2cqw;
+  background: linear-gradient(145deg, #fff 55%, #dfe3f2); border: .45cqw solid var(--ink); box-shadow: .6cqw .7cqw 0 var(--ink), inset -.5cqw -.5cqw 0 rgba(36,51,242,.12); transform-style: preserve-3d; }
+.die i { width: 82%; height: 82%; margin: auto; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5a5a7a, var(--ink) 60%); opacity: 0; transform: scale(.4); transition: opacity .12s, transform .12s; }
+.die[data-v="1"] i:nth-child(5),
+.die[data-v="2"] i:nth-child(1), .die[data-v="2"] i:nth-child(9),
+.die[data-v="3"] i:nth-child(1), .die[data-v="3"] i:nth-child(5), .die[data-v="3"] i:nth-child(9),
+.die[data-v="4"] i:nth-child(1), .die[data-v="4"] i:nth-child(3), .die[data-v="4"] i:nth-child(7), .die[data-v="4"] i:nth-child(9),
+.die[data-v="5"] i:nth-child(1), .die[data-v="5"] i:nth-child(3), .die[data-v="5"] i:nth-child(5), .die[data-v="5"] i:nth-child(7), .die[data-v="5"] i:nth-child(9),
+.die[data-v="6"] i:nth-child(1), .die[data-v="6"] i:nth-child(3), .die[data-v="6"] i:nth-child(4), .die[data-v="6"] i:nth-child(6), .die[data-v="6"] i:nth-child(7), .die[data-v="6"] i:nth-child(9) { opacity: 1; transform: scale(1); }
+.die[data-v="1"] i:nth-child(5), .die[data-v="4"] i, .die[data-v="1"] i { background: radial-gradient(circle at 35% 30%, #ff6b6b, var(--red) 60%); }
+.die[data-v="4"] i:nth-child(n) { background: radial-gradient(circle at 35% 30%, #ff6b6b, var(--red) 60%); }
+.die.roll { animation: dthrow .42s linear infinite; }
+@keyframes dthrow {
+  0% { transform: translateY(0) rotate3d(1, 1, 0, 0deg) rotateZ(0); }
+  25% { transform: translateY(-3cqw) rotate3d(1, 1, 0, 130deg) rotateZ(calc(40deg * var(--dir, 1))); }
+  50% { transform: translateY(0) rotate3d(1, 1, 0, 230deg) rotateZ(calc(90deg * var(--dir, 1))); }
+  75% { transform: translateY(-2cqw) rotate3d(1, 1, 0, 300deg) rotateZ(calc(140deg * var(--dir, 1))); }
+  100% { transform: translateY(0) rotate3d(1, 1, 0, 360deg) rotateZ(calc(180deg * var(--dir, 1))); }
+}
+.die.land { animation: dland .55s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes dland { 0% { transform: translateY(-5cqw) scale(1.25) rotate(-12deg); } 55% { transform: translateY(0) scale(.9, 1.1); } 75% { transform: scale(1.1, .92); } 100% { transform: none; } }
+.die.dbl { box-shadow: .6cqw .7cqw 0 var(--ink), 0 0 2.4cqw .6cqw rgba(255,212,38,.95); }
+.dsum { min-height: 3.4cqw; font-size: 2.6cqw; font-weight: 900; color: var(--ink); background: var(--yellow); border: .35cqw solid var(--ink); border-radius: 2cqw; padding: 0 2cqw; box-shadow: .3cqw .3cqw 0 var(--ink); }
+.dsum:empty { visibility: hidden; }
+.dsum.pop { animation: sumpop .5s cubic-bezier(.3, 1.8, .5, 1); }
+@keyframes sumpop { from { transform: scale(0) rotate(-20deg); } }
+
+/* ===== Carte de paiement (qui paie combien) ===== */
+#paybox { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 8; }
+.paycard { background: #fff; border: .6cqw solid var(--ink); border-radius: 3cqw; box-shadow: 1cqw 1cqw 0 var(--ink); padding: 2cqw 4cqw; text-align: center; min-width: 38cqw; animation: payin .45s cubic-bezier(.3, 1.6, .5, 1); }
+.paycard.loss { background: #fff1f1; } .paycard.gain { background: #effff3; }
+.paycard.out { animation: payout .22s ease-in forwards; }
+@keyframes payin { from { transform: scale(.3) translateY(8cqw) rotate(-8deg); opacity: 0; } }
+@keyframes payout { to { transform: scale(.8) translateY(-4cqw); opacity: 0; } }
+.pc-why { font-size: 1.9cqw; opacity: .75; margin-bottom: .6cqw; }
+.pc-row { display: flex; align-items: center; justify-content: center; gap: 1.6cqw; font-size: 2.4cqw; }
+.pc-p { padding: .3cqw 1.4cqw; border-radius: 2cqw; background: var(--c, #ddd); color: #fff; border: .3cqw solid var(--ink); text-shadow: 0 0 .4cqw var(--ink), 0 0 .4cqw var(--ink); max-width: 18cqw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-p.bank { background: #fff; color: var(--ink); text-shadow: none; }
+.pc-arrow { font-size: 3cqw; animation: arrow .5s ease-in-out infinite alternate; } @keyframes arrow { to { transform: translateX(.8cqw); } }
+.pc-n { font-size: 7.5cqw; line-height: 1.1; margin-top: .6cqw; font-variant-numeric: tabular-nums; }
+.paycard.loss .pc-n { color: var(--red); -webkit-text-stroke: .25cqw var(--ink); } .paycard.gain .pc-n { color: var(--green); -webkit-text-stroke: .25cqw var(--ink); }
+.coin { position: fixed; z-index: 75; font-size: 28px; pointer-events: none; filter: drop-shadow(2px 3px 0 rgba(18,16,43,.35)); }
+.pl .m.up { color: var(--green); animation: bump .7s; } .pl .m.down { color: var(--red); animation: bump .7s; }
+
+/* ===== Bouton de jeu ===== */
+#actions .btn.go[data-a="roll"] { position: relative; overflow: hidden; padding: 16px 12px; font-size: 1.45em; letter-spacing: .5px; border-radius: 16px;
+  background: linear-gradient(135deg, #1fa855 0 40%, #2dd16e 40% 60%, #1fa855 60%); background-size: 220% 100%; animation: shimmer 2.2s linear infinite, ring 1.4s ease-out infinite;
+  box-shadow: 0 5px 0 var(--ink), 0 0 0 0 rgba(31,168,85,.6); }
+#actions .btn.go[data-a="roll"]:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); box-shadow: 0 7px 0 var(--ink); }
+#actions .btn.go[data-a="roll"]:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+#actions .btn.go[data-a="roll"] .di { display: inline-block; animation: wob 1.2s ease-in-out infinite; }
+#actions .btn.go[data-a="roll"]:hover .di { animation: spin .5s linear infinite; }
+@keyframes shimmer { to { background-position: -220% 0; } }
+@keyframes ring { to { box-shadow: 0 5px 0 var(--ink), 0 0 0 14px rgba(31,168,85,0); } }
+@keyframes wob { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg) translateY(-3px); } }
+#actions .btn.go[data-a="end"] { border-radius: 16px; box-shadow: 0 5px 0 var(--ink); }
+#actions .btn { transition: transform .1s, box-shadow .1s, filter .15s; }
+#actions .btn.go[data-a="buy"] { animation: ring 1.4s ease-out infinite; }
+#actions > * { animation: slidein .25s ease-out; } @keyframes slidein { from { transform: translateY(8px); opacity: 0; } }
+.bidrow .btn { flex: 1; }
+
+/* ===== Ambiance du plateau ===== */
+#center .mascot { animation: bob 3.2s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes bob { 50% { transform: translateY(-.8cqw) rotate(1deg); } }
+#center .title { animation: titlebounce 4s ease-in-out infinite; }
+@keyframes titlebounce { 0%, 100% { transform: rotate(-4deg) scale(1); } 50% { transform: rotate(-3deg) scale(1.03); } }
+#center .cd { animation: spin 6s linear infinite; }
+.deck.ch { animation: deckf 5s ease-in-out infinite; } .deck.cc { animation: deckf 5s ease-in-out 1.5s infinite; }
+@keyframes deckf { 50% { margin-top: -.8cqw; } }
+.sq.land { animation: landpop .6s ease-out; z-index: 6; }
+@keyframes landpop { 0% { transform: scale(1); } 30% { transform: scale(1.18); box-shadow: 0 0 0 3px var(--yellow), 0 0 14px 4px rgba(255,212,38,.9); } 100% { transform: scale(1); } }
+.tok.me { animation: mebob 1.2s ease-in-out infinite; } @keyframes mebob { 50% { transform: translateY(-2px); } }
+#log div:last-child { animation: login .35s ease-out; } @keyframes login { from { transform: translateX(-10px); opacity: 0; background: var(--yellow); } }
+.pl.turn { box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px rgba(255,212,38,.7); }
+@media (prefers-reduced-motion: reduce) { #center .mascot, #center .title, .deck, .tok.me, #actions .btn.go { animation: none !important; } }

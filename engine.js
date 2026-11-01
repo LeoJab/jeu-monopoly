@@ -59,14 +59,14 @@ const Engine = (() => {
 
   // ---------- Argent ----------
   function salary(s, p) {
-    p.money += GAME.salary; fx(s, { k: 'go', pid: p.id }); fx(s, { k: 'cash', pid: p.id, d: GAME.salary });
+    p.money += GAME.salary; fx(s, { k: 'go', pid: p.id }); fx(s, { k: 'cash', pid: p.id, d: GAME.salary }); fx(s, { k: 'pay', pid: null, to: p.id, n: GAME.salary, why: 'Passage par Départ' });
     log(s, p.name + ' passe par Départ : +' + fmt(GAME.salary));
   }
   // Retourne true si payé, sinon passe en phase "debt"
-  function charge(s, pid, n, to) {
+  function charge(s, pid, n, to, why) {
     const p = P(s, pid);
     if (p.money >= n) {
-      p.money -= n; fx(s, { k: 'cash', pid, d: -n });
+      p.money -= n; fx(s, { k: 'cash', pid, d: -n }); fx(s, { k: 'pay', pid, to: to || null, n, why: why || '' });
       if (to) { P(s, to).money += n; fx(s, { k: 'cash', pid: to, d: n }); }
       return true;
     }
@@ -110,11 +110,11 @@ const Engine = (() => {
           const r = rentOf(s, p.pos, s.dice[0] + s.dice[1]);
           log(s, p.name + ' paie ' + fmt(r) + ' de loyer à ' + P(s, pr.o).name);
           fx(s, { k: 'rent', pid, to: pr.o, n: r });
-          charge(s, pid, r, pr.o);
+          charge(s, pid, r, pr.o, 'Loyer · ' + BOARD[p.pos].name);
         }
         break;
       }
-      case 'tax': log(s, p.name + ' paie ' + b.name + ' : ' + fmt(b.amount)); charge(s, pid, b.amount, null); break;
+      case 'tax': log(s, p.name + ' paie ' + b.name + ' : ' + fmt(b.amount)); charge(s, pid, b.amount, null, b.name); break;
       case 'gojail': sendJail(s, pid); break;
       case 'chance': draw(s, pid, 'chance'); break;
       case 'chest': draw(s, pid, 'chest'); break;
@@ -138,20 +138,20 @@ const Engine = (() => {
       }
       case 'jail': sendJail(s, pid); break;
       case 'jailcard': p.jc.push(deck + ':' + idx); break;
-      case 'gain': p.money += c.n; fx(s, { k: 'cash', pid, d: c.n }); break;
-      case 'pay': charge(s, pid, c.n, null); break;
+      case 'gain': p.money += c.n; fx(s, { k: 'cash', pid, d: c.n }); fx(s, { k: 'pay', pid: null, to: pid, n: c.n, why: 'Carte ' + (deck === 'chance' ? 'Chance' : 'Caisse') }); break;
+      case 'pay': charge(s, pid, c.n, null, 'Carte ' + (deck === 'chance' ? 'Chance' : 'Caisse')); break;
       case 'repair': {
         let h = 0, v = 0;
         Object.entries(s.props).forEach(([, pr]) => { if (pr.o === pid) { if (pr.h === 5) v++; else h += pr.h; } });
         const cost = h * c.house + v * c.villa;
-        if (cost > 0) charge(s, pid, cost, null); else log(s, 'Aucun bâtiment : rien à payer.');
+        if (cost > 0) charge(s, pid, cost, null, 'Réparations'); else log(s, 'Aucun bâtiment : rien à payer.');
         break;
       }
       case 'birthday':
         s.players.forEach(o => {
           if (o.out || o.id === pid) return;
           const n = Math.min(o.money, c.n); o.money -= n; p.money += n;
-          fx(s, { k: 'cash', pid: o.id, d: -n }); fx(s, { k: 'cash', pid, d: n });
+          fx(s, { k: 'cash', pid: o.id, d: -n }); fx(s, { k: 'cash', pid, d: n }); fx(s, { k: 'pay', pid: o.id, to: pid, n, why: 'Anniversaire' });
         });
         break;
       case 'gainOrChance': s.choice = { pid, n: c.n }; s.phase = 'choice'; break;
@@ -174,7 +174,7 @@ const Engine = (() => {
     if (a.lead && others.length === 0) {
       const w = P(s, a.lead); w.money -= a.bid;
       s.props[a.idx] = { o: w.id, h: 0, m: 0 };
-      fx(s, { k: 'buy', pid: w.id, idx: a.idx }); fx(s, { k: 'cash', pid: w.id, d: -a.bid });
+      fx(s, { k: 'buy', pid: w.id, idx: a.idx }); fx(s, { k: 'cash', pid: w.id, d: -a.bid }); fx(s, { k: 'pay', pid: w.id, to: null, n: a.bid, why: 'Enchères · ' + BOARD[a.idx].name });
       log(s, w.name + ' remporte ' + BOARD[a.idx].name + ' pour ' + fmt(a.bid));
       s.auction = null; s.phase = 'end'; return;
     }
@@ -257,7 +257,6 @@ const Engine = (() => {
     let kick = null;
     if (v.yes.length * 2 > n) kick = true;
     else if (v.no.length * 2 >= n) kick = false;
-    else if (force) kick = v.yes.length > v.no.length;
     if (kick === null) return;
     s.vote = null;
     if (kick && !tg.out) { log(s, tg.name + ' est exclu par vote 🚪'); doForfeit(s, tg.id); }
@@ -285,7 +284,7 @@ const Engine = (() => {
             p.jail++;
             if (p.jail >= GAME.maxJailTurns) {
               log(s, p.name + ' paie ' + fmt(GAME.jailFine) + ' pour quitter l\'Hôtel'); p.jail = -1; s.extra = false;
-              if (charge(s, pid, GAME.jailFine, null)) moveBy(s, p, sum); else s.pendingMove = sum;
+              if (charge(s, pid, GAME.jailFine, null, 'Amende Hôtel')) moveBy(s, p, sum); else s.pendingMove = sum;
             } else { log(s, p.name + ' reste à l\'Hôtel (' + p.jail + '/' + GAME.maxJailTurns + ')'); s.phase = 'end'; s.extra = false; }
           }
         } else {
@@ -298,7 +297,7 @@ const Engine = (() => {
       case 'jailPay':
         if (!mine || ph !== 'roll' || p.jail < 0) return 'Impossible';
         if (p.money < GAME.jailFine) return 'Pas assez d\'argent';
-        p.money -= GAME.jailFine; p.jail = -1; fx(s, { k: 'cash', pid, d: -GAME.jailFine });
+        p.money -= GAME.jailFine; p.jail = -1; fx(s, { k: 'cash', pid, d: -GAME.jailFine }); fx(s, { k: 'pay', pid, to: null, n: GAME.jailFine, why: 'Sortie de l\'Hôtel' });
         log(s, p.name + ' paie ' + fmt(GAME.jailFine) + ' et sort de l\'Hôtel'); break;
       case 'jailCard': {
         if (!mine || ph !== 'roll' || p.jail < 0 || !p.jc.length) return 'Impossible';
@@ -310,7 +309,7 @@ const Engine = (() => {
         const b = BOARD[p.pos];
         if (p.money < b.price) return 'Pas assez d\'argent';
         p.money -= b.price; s.props[p.pos] = { o: pid, h: 0, m: 0 }; s.phase = 'end';
-        fx(s, { k: 'buy', pid, idx: p.pos }); fx(s, { k: 'cash', pid, d: -b.price });
+        fx(s, { k: 'buy', pid, idx: p.pos }); fx(s, { k: 'cash', pid, d: -b.price }); fx(s, { k: 'pay', pid, to: null, n: b.price, why: 'Achat · ' + b.name });
         log(s, p.name + ' achète ' + b.name + ' (' + fmt(b.price) + ')'); break;
       }
       case 'decline': if (!mine || ph !== 'buy') return 'Impossible'; startAuction(s, p.pos); break;
@@ -326,7 +325,7 @@ const Engine = (() => {
         s.auction.passed.push(pid); log(s, p.name + ' se couche'); auctionNext(s); break;
       case 'choiceGain':
         if (ph !== 'choice' || s.choice.pid !== pid) return 'Impossible';
-        p.money += s.choice.n; fx(s, { k: 'cash', pid, d: s.choice.n }); s.choice = null; s.phase = 'end'; break;
+        p.money += s.choice.n; fx(s, { k: 'cash', pid, d: s.choice.n }); fx(s, { k: 'pay', pid: null, to: pid, n: s.choice.n, why: 'Chance' }); s.choice = null; s.phase = 'end'; break;
       case 'choiceChance':
         if (ph !== 'choice' || s.choice.pid !== pid) return 'Impossible';
         s.choice = null; s.phase = 'moving'; draw(s, pid, 'chance'); if (s.phase === 'moving') s.phase = 'end'; break;
@@ -361,7 +360,7 @@ const Engine = (() => {
       case 'payDebt': {
         if (ph !== 'debt' || s.debt.pid !== pid) return 'Impossible';
         if (p.money < s.debt.n) return 'Toujours pas assez d\'argent';
-        const d = s.debt; s.debt = null; charge(s, pid, d.n, d.to);
+        const d = s.debt; s.debt = null; charge(s, pid, d.n, d.to, 'Dette');
         if (s.pendingMove) { const m = s.pendingMove; s.pendingMove = 0; moveBy(s, p, m); } else s.phase = 'end';
         break;
       }
@@ -392,9 +391,6 @@ const Engine = (() => {
       case 'votecancel': // la cible est revenue
         if (!s.vote) return null;
         log(s, P(s, s.vote.target).name + ' est de retour, vote annulé.'); s.vote = null; break;
-      case 'voteend': // délai du vote écoulé
-        if (!s.vote) return null;
-        resolveVote(s, true); break;
       case 'end':
         if (!mine || ph !== 'end') return 'Pas maintenant';
         if (s.extra && p.jail < 0) { s.extra = false; s.phase = 'roll'; fx(s, { k: 'turn', pid }); log(s, p.name + ' rejoue (double)'); }

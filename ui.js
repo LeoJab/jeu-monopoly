@@ -7,7 +7,7 @@ const UI = (() => {
   const FACE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const cells = [], tks = [];
-  let shown = {}, lastV = 0, lastPartie = null, queue = Promise.resolve(), built = false, rolling = false, hopPid = null, wasMine = false;
+  let moneyShown = {}, shown = {}, lastV = 0, lastPartie = null, queue = Promise.resolve(), built = false, rolling = false, hopPid = null, wasMine = false;
 
   function gridPos(i) {
     if (i === 0) return [11, 11];
@@ -31,6 +31,10 @@ const UI = (() => {
     return (ic ? '<div class="ic">' + ic + '</div>' : '') + '<div class="nm">' + esc(b.name) + '</div>' + price + sub;
   }
 
+  const PIPS = '<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>';
+  function dieHTML(id) { return '<div class="die" id="' + id + '" data-v="1">' + PIPS + '</div>'; }
+  function setDie(el, v) { el.dataset.v = v; }
+
   function build() {
     const board = $('#board');
     BOARD.forEach((b, i) => {
@@ -50,8 +54,8 @@ const UI = (() => {
       '<div class="deck ch">❓ CHANCE</div><div class="deck cc">📦 CAISSE DE COMMUNAUTÉ</div>' +
       '<h2 class="title"><span class="cd"></span>MOLOPONY</h2>' +
       '<img class="mascot" src="img/lenaic.png" alt="' + GAME.mascot + '">' +
-      '<div class="dice"><div class="die" id="d1">⚀</div><div class="die" id="d2">⚀</div></div>' +
-      '<div class="bubble" id="bubble">Bienvenue !</div>';
+      '<div class="dice">' + dieHTML('d1') + dieHTML('d2') + '</div><div class="dsum" id="dsum"></div>' +
+      '<div class="bubble" id="bubble">Bienvenue !</div><div id="paybox"></div>';
     board.appendChild(center);
     built = true;
   }
@@ -93,7 +97,7 @@ const UI = (() => {
     return '<div class="av tok big' + (TOKENS[p.tok % TOKENS.length].img ? ' chip' : '') + '" style="--c:' + p.color + '" data-chadgang-id="' + esc(p.id) + '">' + (TOKENS[p.tok % TOKENS.length].img ? '<img src="' + TOKENS[p.tok % TOKENS.length].img + '">' : TOKENS[p.tok % TOKENS.length].emoji) + '</div>';
   }
   function pipColor(b) { return b.t === 'street' ? GROUPS[b.g].color : b.t === 'rail' ? '#3a3a4a' : '#b9b9c9'; }
-  function renderPlayers(s) {
+  function renderPlayers(s, animate) {
     $('#players').innerHTML = s.players.map((p, i) => {
       const turn = i === s.turn && !p.out && s.phase !== 'over';
       const mine = Object.keys(s.props).map(Number).filter(k => s.props[k].o === p.id).sort((x, y) => x - y);
@@ -101,11 +105,24 @@ const UI = (() => {
       const badges = (p.jail >= 0 ? '<span class="bd" title="À l\'Hôtel">🏨</span>' : '') + (p.jc.length ? '<span class="bd" title="Carte libération">🃏</span>' : '') + (turn ? '<span class="bd">🎲</span>' : '');
       return '<div class="pl' + (turn ? ' turn' : '') + (p.out ? ' out' : '') + (p.id === G.meId ? ' me' : '') + '" data-pid="' + esc(p.id) + '" style="--c:' + p.color + '">' +
         avatarHTML(p) + '<div class="info"><div class="n">' + esc(p.name) + (p.id === G.meId ? ' <span class="you">toi</span>' : '') + '</div>' +
-        '<div class="m">' + (p.out ? '💀 Éliminé' : Engine.fmt(p.money)) + '</div>' +
+        '<div class="m">' + (p.out ? '💀 Éliminé' : Engine.fmt(animate || moneyShown[p.id] == null ? p.money : moneyShown[p.id])) + '</div>' +
         (mine.length ? '<div class="pips">' + pips + '</div>' : '<div class="sub nopr">Aucun terrain</div>') + '</div>' +
         '<div class="badges">' + badges + '</div></div>';
     }).join('');
     document.querySelectorAll('#players .pl').forEach(el => el.addEventListener('click', () => Modals.mine(el.dataset.pid)));
+    s.players.forEach(p => {
+      const from = moneyShown[p.id]; moneyShown[p.id] = p.money;
+      if (animate && from != null && from !== p.money && !p.out) countUp(p.id, from, p.money);
+    });
+  }
+  function countUp(pid, from, to) {
+    const el = document.querySelector('#players .pl[data-pid="' + pid + '"] .m'); if (!el) return;
+    const t0 = performance.now(), dur = 700; el.classList.add(to > from ? 'up' : 'down');
+    (function step(t) {
+      const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = Engine.fmt(Math.round(from + (to - from) * e));
+      if (k < 1) requestAnimationFrame(step); else el.classList.remove('up', 'down');
+    })(t0);
   }
   function renderLog(s) {
     const L = $('#log'); L.innerHTML = s.log.map(l => '<div>' + esc(l) + '</div>').join(''); L.scrollTop = L.scrollHeight;
@@ -113,7 +130,8 @@ const UI = (() => {
   }
   function renderDice(s) {
     if (rolling) return;
-    $('#d1').textContent = FACE[s.dice[0] - 1]; $('#d2').textContent = FACE[s.dice[1] - 1];
+    setDie($('#d1'), s.dice[0]); setDie($('#d2'), s.dice[1]);
+    $('#dsum').textContent = s.dice[0] + s.dice[1] ? '= ' + (s.dice[0] + s.dice[1]) : '';
   }
 
   function actions(s) {
@@ -142,7 +160,7 @@ const UI = (() => {
       switch (s.phase) {
         case 'roll':
           h = p.jail >= 0 ? '<div class="hint">🏨 À l\'Hôtel (' + p.jail + '/' + GAME.maxJailTurns + ') : fais un double ou paie.</div>' : '';
-          h += '<button class="btn go" data-a="roll">🎲 Lancer les dés <small class="kbd">Espace</small></button>';
+          h += '<button class="btn go" data-a="roll"><span class="di">🎲</span> LANCER LES DÉS <small class="kbd">Espace</small></button>';
           if (p.jail >= 0) h += '<div class="btnrow"><button class="btn" data-a="jailPay"' + (p.money < GAME.jailFine ? ' disabled' : '') + '>Payer ' + GAME.jailFine + ' €</button>' +
             (p.jc.length ? '<button class="btn" data-a="jailCard">🃏 Carte libération</button>' : '') + '</div>';
           break;
@@ -200,7 +218,7 @@ const UI = (() => {
   }
 
   function renderAll(s) {
-    renderBoard(s); renderPlayers(s); renderLog(s); renderDice(s); actions(s); Modals.rerender();
+    renderBoard(s); renderPlayers(s, true); renderLog(s); renderDice(s); actions(s); Modals.rerender();
   }
 
   // ---------- Animations ----------
@@ -214,18 +232,43 @@ const UI = (() => {
       for (let k = 1; k <= n; k++) { shown[e.pid] = (e.from + k) % 40; hop(e.pid); renderBoard(s); FX.sound('step'); await wait(step); }
     }
     shown[e.pid] = e.to; hopPid = null; renderBoard(s);
+    const cl = cells[e.to]; cl.classList.remove('land'); void cl.offsetWidth; cl.classList.add('land'); setTimeout(() => cl.classList.remove('land'), 700);
     const b = BOARD[e.to];
     if (['street', 'rail', 'util'].includes(b.t)) await wait(120);
   }
   function hop(pid) { hopPid = pid; }
   async function rollAnim(e) {
-    rolling = true; const d1 = $('#d1'), d2 = $('#d2');
-    d1.classList.add('roll'); d2.classList.add('roll'); FX.sound('roll');
-    for (let k = 0; k < 9; k++) { d1.textContent = FACE[Math.floor(Math.random() * 6)]; d2.textContent = FACE[Math.floor(Math.random() * 6)]; await wait(85); }
+    rolling = true; const d1 = $('#d1'), d2 = $('#d2'), sum = $('#dsum');
+    sum.textContent = ''; sum.classList.remove('pop');
+    [d1, d2].forEach((d, i) => { d.classList.remove('land', 'dbl'); d.classList.add('roll'); d.style.setProperty('--dir', i ? 1 : -1); });
+    FX.sound('roll');
+    for (let k = 0; k < 12; k++) {
+      setDie(d1, 1 + Math.floor(Math.random() * 6)); setDie(d2, 1 + Math.floor(Math.random() * 6)); await wait(60 + k * 12);
+    }
     d1.classList.remove('roll'); d2.classList.remove('roll');
-    d1.textContent = FACE[e.a - 1]; d2.textContent = FACE[e.b - 1]; rolling = false;
+    setDie(d1, e.a); setDie(d2, e.b); rolling = false;
+    [d1, d2].forEach(d => { void d.offsetWidth; d.classList.add('land'); if (e.a === e.b) d.classList.add('dbl'); });
+    sum.textContent = '= ' + (e.a + e.b); void sum.offsetWidth; sum.classList.add('pop');
     if (e.a === e.b) { FX.banner('DOUBLE !', '#ffd426'); FX.confetti(40, null, null, 0.7); }
-    await wait(350);
+    await wait(450);
+  }
+  function plEl(pid) { return pid ? document.querySelector('#players .pl[data-pid="' + pid + '"]') : null; }
+  function pulse(el, kf) { if (el && el.animate) el.animate(kf, { duration: 600, easing: 'ease-out' }); }
+  async function payAnim(e, s) {
+    const from = e.pid ? Engine.P(s, e.pid) : null, to = e.to ? Engine.P(s, e.to) : null;
+    const who = (p, fb) => p ? '<span class="pc-p" style="--c:' + p.color + '">' + esc(p.name) + '</span>' : '<span class="pc-p bank">' + fb + '</span>';
+    const gain = !from;
+    const box = $('#paybox'); if (!box) return;
+    box.innerHTML = '<div class="paycard ' + (gain ? 'gain' : 'loss') + '">' + (e.why ? '<div class="pc-why">' + esc(e.why) + '</div>' : '') +
+      '<div class="pc-row">' + who(from, '🏦 Banque') + '<span class="pc-arrow">➜</span>' + who(to, '🏦 Banque') + '</div>' +
+      '<div class="pc-n">' + (gain ? '+' : '−') + Engine.fmt(e.n) + '</div></div>';
+    const fe = plEl(e.pid), te = plEl(e.to), mid = $('#center');
+    FX.flyCoins(fe || mid, te || mid, Math.min(12, 3 + Math.floor(e.n / 60)), gain ? '💰' : '🪙');
+    pulse(fe, [{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)', background: '#ffb3b3' }, { transform: 'translateX(6px)' }, { transform: 'translateX(0)' }]);
+    pulse(te, [{ transform: 'scale(1)' }, { transform: 'scale(1.06)', background: '#b9f5c8' }, { transform: 'scale(1)' }]);
+    await wait(e.to && e.pid ? 1500 : 950);
+    const c = box.firstChild; if (c) c.classList.add('out');
+    await wait(220); box.innerHTML = '';
   }
   function cellCenter(i) { const r = cells[i].getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }
 
@@ -241,6 +284,7 @@ const UI = (() => {
         if (e.d > 0) { FX.sound('cash'); if (e.d >= 150) FX.burstAt(el, 25, .6); } else FX.sound('pay');
         break;
       }
+      case 'pay': await payAnim(e, s); break;
       case 'rent': FX.sound('bad'); FX.rain('💥', 8); if (e.n >= 300) FX.shake(); break;
       case 'buy': {
         FX.sound('buy'); const [x, y] = cellCenter(e.idx); FX.confetti(60, x, y, .8);
@@ -272,7 +316,7 @@ const UI = (() => {
     const prevV = lastV;
     G.state = s;
     if (typeof Vote !== 'undefined') Vote.render(s);
-    if (fresh) { shown = {}; lastPartie = s.partie; Modals.close(); }
+    if (fresh) { shown = {}; moneyShown = {}; lastPartie = s.partie; Modals.close(); }
     s.players.forEach(p => { if (shown[p.id] == null) shown[p.id] = p.pos; });
     if (quiet && !fresh) { return; }
     lastV = s.v;
@@ -288,6 +332,6 @@ const UI = (() => {
     renderBoard(s);
   }
 
-  function reset() { lastV = 0; lastPartie = null; shown = {}; }
+  function reset() { moneyShown = {}; lastV = 0; lastPartie = null; shown = {}; }
   return { update, reset, needs, actor, viewer, renderAll };
 })();

@@ -101,5 +101,22 @@ const FX = (() => {
     document.body.appendChild(d); setTimeout(() => d.remove(), 1500);
   }
 
-  return { sound, toggleMute, isMuted: () => muted, confetti, rain, fireworks, burstAt, shake, flash, banner, floatText };
+  // Pièces qui volent d'un élément à un autre (paiements)
+  function flyCoins(from, to, n, emoji) {
+    const a = from ? from.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0 };
+    const b = to ? to.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0 };
+    const x0 = a.left + a.width / 2, y0 = a.top + a.height / 2, x1 = b.left + b.width / 2, y1 = b.top + b.height / 2;
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement('div'); c.className = 'coin'; c.textContent = emoji || '🪙';
+      c.style.left = x0 + 'px'; c.style.top = y0 + 'px'; document.body.appendChild(c);
+      const mx = (x0 + x1) / 2 + (Math.random() - .5) * 160, my = Math.min(y0, y1) - 40 - Math.random() * 90;
+      const an = c.animate([
+        { transform: 'translate(-50%,-50%) scale(.4)', opacity: 0 },
+        { transform: 'translate(' + (mx - x0 - 14) + 'px,' + (my - y0 - 14) + 'px) scale(1.2) rotate(180deg)', opacity: 1, offset: .45 },
+        { transform: 'translate(' + (x1 - x0 - 14) + 'px,' + (y1 - y0 - 14) + 'px) scale(.6) rotate(360deg)', opacity: .9 }
+      ], { duration: 700 + Math.random() * 300, delay: i * 70, easing: 'ease-in-out', fill: 'both' });
+      an.onfinish = () => c.remove();
+    }
+  }
+  return { flyCoins, sound, toggleMute, isMuted: () => muted, confetti, rain, fireworks, burstAt, shake, flash, banner, floatText };
 })();
