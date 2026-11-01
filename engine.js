@@ -25,7 +25,7 @@ const Engine = (() => {
       props: {}, decks: {
         chance: shuffle(CHANCE.map((_, i) => i)), chest: shuffle(CHEST.map((_, i) => i)),
       },
-      debt: null, auction: null, choice: null, vote: null, pendingMove: 0, winner: null,
+      debt: null, auction: null, choice: null, vote: null, lastCard: null, pendingMove: 0, winner: null,
       log: ['La partie commence !'], fx: [{ k: 'start' }],
     };
   }
@@ -129,6 +129,7 @@ const Engine = (() => {
     const keep = c.a === 'jailcard';
     if (!keep) s.decks[deck].push(idx);
     fx(s, { k: 'card', deck, txt: c.txt, pid });
+    s.lastCard = { deck, txt: c.txt, pid, n: ((s.lastCard && s.lastCard.n) || 0) + 1 };
     log(s, p.name + ' (' + (deck === 'chance' ? 'Chance' : 'Caisse') + ') : ' + c.txt);
     switch (c.a) {
       case 'goto': moveTo(s, p, c.to, c.collect); break;

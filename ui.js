@@ -104,7 +104,7 @@ const UI = (() => {
       const pips = mine.map(k => '<i class="pip' + (s.props[k].m ? ' m' : '') + '" style="--pc:' + pipColor(BOARD[k]) + '" title="' + esc(BOARD[k].name) + '">' + (s.props[k].h ? (s.props[k].h === 5 ? '★' : s.props[k].h) : '') + '</i>').join('');
       const badges = (p.jail >= 0 ? '<span class="bd" title="À l\'Hôtel">🏨</span>' : '') + (p.jc.length ? '<span class="bd" title="Carte libération">🃏</span>' : '') + (turn ? '<span class="bd">🎲</span>' : '');
       return '<div class="pl' + (turn ? ' turn' : '') + (p.out ? ' out' : '') + (p.id === G.meId ? ' me' : '') + '" data-pid="' + esc(p.id) + '" style="--c:' + p.color + '">' +
-        avatarHTML(p) + '<div class="info"><div class="n">' + esc(p.name) + (p.id === G.meId ? ' <span class="you">toi</span>' : '') + '</div>' +
+        avatarHTML(p) + '<div class="info"><div class="n">' + '<span class="nm">' + esc(p.name) + '</span>' + (p.id === G.meId ? ' <span class="you">toi</span>' : '') + '</div>' +
         '<div class="m">' + (p.out ? '💀 Éliminé' : Engine.fmt(animate || moneyShown[p.id] == null ? p.money : moneyShown[p.id])) + '</div>' +
         (mine.length ? '<div class="pips">' + pips + '</div>' : '<div class="sub nopr">Aucun terrain</div>') + '</div>' +
         '<div class="badges">' + badges + '</div></div>';
@@ -127,6 +127,15 @@ const UI = (() => {
   function renderLog(s) {
     const L = $('#log'); L.innerHTML = s.log.map(l => '<div>' + esc(l) + '</div>').join(''); L.scrollTop = L.scrollHeight;
     $('#bubble').textContent = s.log[s.log.length - 1] || '';
+  }
+  function renderLastCard(s) {
+    const el = $('#lastcard'), c = s.lastCard;
+    if (!c) { el.innerHTML = '<div class="lc-title">🃏 Dernière carte</div><div class="lc-empty">Aucune carte tirée pour l\'instant.</div>'; el.dataset.n = ''; return; }
+    const p = Engine.P(s, c.pid), isC = c.deck === 'chance';
+    const fresh = el.dataset.n !== String(c.n); el.dataset.n = c.n;
+    el.innerHTML = '<div class="lc-title">🃏 Dernière carte</div><div class="lc-card ' + (isC ? 'chance' : 'chest') + (fresh ? ' fresh' : '') + '">' +
+      '<div class="lc-deck">' + (isC ? '❓ CHANCE' : '📦 CAISSE DE COMMUNAUTÉ') + '</div><div class="lc-txt">' + esc(c.txt) + '</div></div>' +
+      '<div class="lc-who">Tombée sur <span class="pc-p" style="--c:' + p.color + '">' + esc(p.name) + '</span></div>';
   }
   function renderDice(s) {
     if (rolling) return;
@@ -218,7 +227,7 @@ const UI = (() => {
   }
 
   function renderAll(s) {
-    renderBoard(s); renderPlayers(s, true); renderLog(s); renderDice(s); actions(s); Modals.rerender();
+    renderBoard(s); renderPlayers(s, true); renderLog(s); renderLastCard(s); renderDice(s); actions(s); Modals.rerender();
   }
 
   // ---------- Animations ----------
