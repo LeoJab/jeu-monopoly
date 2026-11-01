@@ -117,7 +117,7 @@ const CHEST = [
 const TOKENS = [
   { id: 'vape',     name: 'Cigarette électrique', emoji: '💨', img: 'img/pions/vape.png' },
   { id: 'cap',      name: 'Casquette (à Simon)', emoji: '🧢', img: 'img/pions/cap.png' },
-  { id: 'fifty',    name: 'Fifty le chien', emoji: '🐶', img: 'img/pions/fifty.png' },
+  { id: 'fifty',    name: 'Fifty-Jan le chien', emoji: '🐶', img: 'img/pions/fifty.png' },
   { id: 'slip',     name: 'Slip (sale et troué)', emoji: '🩲', img: 'img/pions/slip.png' },
   { id: 'nutella',  name: 'Pot de Nutella', emoji: '🫙', img: 'img/pions/nutella.png' },
   { id: 'bidon',    name: 'Bidon de cum', emoji: '🥛', img: 'img/pions/bidon.png' },

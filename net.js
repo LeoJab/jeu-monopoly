@@ -112,7 +112,7 @@
   $('#btnLeave').onclick = leave;
   function leave() {
     if (salle) { try { salle.leave(); } catch (e) {} salle = null; }
-    G.state = null; G.local = false; hello = {}; roster = []; reported = null; UI.reset();
+    G.state = null; G.local = false; hello = {}; roster = []; reported = null; refused = {}; UI.reset();
     $('#menu').hidden = false; $('#room').hidden = true; show('#lobby');
     if (!hasSDK) switchTab('local');
   }
@@ -147,6 +147,7 @@
     show('#game');
     UI.update(s);
     maybeReport(s);
+    watchAbsent();
   }
 
   // Envoi d'une action (joueur local ou à distance)
@@ -167,24 +168,38 @@
     else if (d.t === 'state') { if (from.id !== G.meId) onState(d.s); }
     else if (d.t === 'act') {
       if (!G.host || !G.state) return;
+      if (!d.a || ['votestart', 'votecancel', 'forfeit'].includes(d.a.a)) return;
       const e = Engine.act(G.state, from.id, d.a);
       if (e) { salle.send({ t: 'err', to: from.id, msg: e }); return; }
       broadcast(G.state); UI.update(G.state); maybeReport(G.state);
     } else if (d.t === 'err') { if (d.to === G.meId) err(d.msg); }
   }
 
-  // Joueurs absents : l'hôte les met en faillite après 25 s
+  // Joueurs absents : au bout de 1 min, l'hôte lance un vote d'exclusion (les autres joueurs décident)
+  const ABSENT_MS = 60000;
+  let refused = {};
+  const hostHere = () => G.state.players.filter(p => !p.out && roster.some(r => r.id === p.id));
+  function hostAct(a) {
+    const who = hostHere()[0]; if (!who) return;
+    if (!Engine.act(G.state, who.id, a)) { broadcast(G.state); UI.update(G.state); maybeReport(G.state); }
+  }
   function watchAbsent() {
     if (!G.host || !G.state || G.local || G.state.phase === 'over') return;
-    G.state.players.forEach(p => {
+    const s = G.state;
+    s.players.forEach(p => {
       if (p.out) return;
       const here = roster.some(r => r.id === p.id);
-      if (here) { clearTimeout(absent[p.id]); delete absent[p.id]; }
-      else if (!absent[p.id]) absent[p.id] = setTimeout(() => {
+      if (here) {
+        clearTimeout(absent[p.id]); delete absent[p.id]; delete refused[p.id];
+        if (s.vote && s.vote.target === p.id) hostAct({ a: 'votecancel' });
+      } else if (!absent[p.id] && !refused[p.id]) absent[p.id] = setTimeout(() => {
         delete absent[p.id];
-        if (!G.host || !G.state || roster.some(r => r.id === p.id)) return;
-        if (!Engine.act(G.state, p.id, { a: 'forfeit' })) { broadcast(G.state); UI.update(G.state); maybeReport(G.state); }
-      }, 25000);
+        const st = G.state;
+        if (!G.host || !st || st.vote || st.phase === 'over' || roster.some(r => r.id === p.id)) return;
+        const voters = hostHere().map(x => x.id);
+        if (voters.length) hostAct({ a: 'votestart', target: p.id, voters });
+        refused[p.id] = true; // un seul vote par absence
+      }, ABSENT_MS);
     });
   }
 

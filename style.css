@@ -169,3 +169,7 @@ input[type=text] { font: inherit; padding: 9px 12px; border: 3px solid var(--ink
 .tks[data-n="3"] .tok + .tok, .tks[data-n="4"] .tok + .tok { margin-left: -1.6cqw; }
 .tks[data-n="5"] .tok, .tks[data-n="6"] .tok, .tks[data-n="7"] .tok, .tks[data-n="8"] .tok { width: 3.4cqw; height: 3.4cqw; min-width: 15px; min-height: 15px; }
 .tks[data-n="5"] .tok + .tok, .tks[data-n="6"] .tok + .tok, .tks[data-n="7"] .tok + .tok, .tks[data-n="8"] .tok + .tok { margin-left: -1.4cqw; }
+
+/* Vote d'exclusion */
+#vote { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 70; width: min(92vw, 460px); background: #fff; color: #12102b; border: 3px solid #12102b; border-radius: 14px; box-shadow: 0 6px 0 #12102b; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; text-align: center; font-size: 14px; }
+#vote .row { display: flex; gap: 8px; justify-content: center; }

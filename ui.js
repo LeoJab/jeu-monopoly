@@ -250,6 +250,7 @@ const UI = (() => {
     const quiet = fresh && s.v > 1 ? true : (!fresh && s.v <= lastV);
     const prevV = lastV;
     G.state = s;
+    if (typeof Vote !== 'undefined') Vote.render(s);
     if (fresh) { shown = {}; lastPartie = s.partie; Modals.close(); }
     s.players.forEach(p => { if (shown[p.id] == null) shown[p.id] = p.pos; });
     if (quiet && !fresh) { return; }

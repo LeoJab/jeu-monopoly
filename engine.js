@@ -25,7 +25,7 @@ const Engine = (() => {
       props: {}, decks: {
         chance: shuffle(CHANCE.map((_, i) => i)), chest: shuffle(CHEST.map((_, i) => i)),
       },
-      debt: null, auction: null, choice: null, pendingMove: 0, winner: null,
+      debt: null, auction: null, choice: null, vote: null, pendingMove: 0, winner: null,
       log: ['La partie commence !'], fx: [{ k: 'start' }],
     };
   }
@@ -240,6 +240,30 @@ const Engine = (() => {
     s.phase = 'roll'; fx(s, { k: 'turn', pid: cur(s).id });
   }
 
+  function doForfeit(s, pid) {
+    const au = s.auction, wasTurn = au && auctionTurn(s) === pid;
+    if (au && cur(s).id !== pid) {
+      if (!au.passed.includes(pid)) au.passed.push(pid);
+      if (au.lead === pid) { au.lead = null; au.bid = 0; }
+    }
+    bankrupt(s, pid, null);
+    if (s.auction && s.phase === 'auction') { auctionNext(s, false); if (s.auction && wasTurn) auctionNext(s, true); }
+  }
+
+  // Vote d'exclusion : majorité stricte des votants pour exclure ; sinon le joueur reste.
+  function resolveVote(s, force) {
+    const v = s.vote; if (!v) return;
+    const n = v.voters.length, tg = P(s, v.target);
+    let kick = null;
+    if (v.yes.length * 2 > n) kick = true;
+    else if (v.no.length * 2 >= n) kick = false;
+    else if (force) kick = v.yes.length > v.no.length;
+    if (kick === null) return;
+    s.vote = null;
+    if (kick && !tg.out) { log(s, tg.name + ' est exclu par vote 🚪'); doForfeit(s, tg.id); }
+    else log(s, 'Vote terminé : ' + tg.name + ' reste dans la partie.');
+  }
+
   // ---------- Actions ----------
   // Retourne null si OK, sinon un message d'erreur.
   function act(s, pid, a) {
@@ -346,15 +370,31 @@ const Engine = (() => {
         bankrupt(s, pid, s.debt.to); break;
       case 'forfeit': { // départ d'un joueur (appelé par l'hôte)
         if (p.out) return null;
-        const au = s.auction, wasTurn = au && auctionTurn(s) === pid;
-        if (au && cur(s).id !== pid) {
-          if (!au.passed.includes(pid)) au.passed.push(pid);
-          if (au.lead === pid) { au.lead = null; au.bid = 0; }
-        }
-        bankrupt(s, pid, null);
-        if (s.auction && s.phase === 'auction') { auctionNext(s, false); if (s.auction && wasTurn) auctionNext(s, true); }
+        doForfeit(s, pid);
         break;
       }
+      case 'votestart': { // lancé par l'hôte quand un joueur est déconnecté depuis trop longtemps
+        const t = P(s, a.target);
+        if (s.vote || !t || t.out || t.id === pid) return 'Vote impossible';
+        const voters = (a.voters || []).filter(id => id !== t.id && P(s, id) && !P(s, id).out);
+        if (!voters.length) return 'Personne pour voter';
+        s.vote = { target: t.id, voters, yes: [], no: [] };
+        log(s, '🗳️ Vote : exclure ' + t.name + ' (déconnecté) ?');
+        break;
+      }
+      case 'vote': {
+        const v = s.vote;
+        if (!v || !v.voters.includes(pid) || v.yes.includes(pid) || v.no.includes(pid)) return 'Vote impossible';
+        (a.yes ? v.yes : v.no).push(pid);
+        resolveVote(s, false);
+        break;
+      }
+      case 'votecancel': // la cible est revenue
+        if (!s.vote) return null;
+        log(s, P(s, s.vote.target).name + ' est de retour, vote annulé.'); s.vote = null; break;
+      case 'voteend': // délai du vote écoulé
+        if (!s.vote) return null;
+        resolveVote(s, true); break;
       case 'end':
         if (!mine || ph !== 'end') return 'Pas maintenant';
         if (s.extra && p.jail < 0) { s.extra = false; s.phase = 'roll'; fx(s, { k: 'turn', pid }); log(s, p.name + ' rejoue (double)'); }
