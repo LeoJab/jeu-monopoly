@@ -7,7 +7,7 @@ const UI = (() => {
   const FACE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const cells = [], tks = [];
-  let shown = {}, lastV = 0, lastPartie = null, queue = Promise.resolve(), built = false, rolling = false, hopPid = null;
+  let shown = {}, lastV = 0, lastPartie = null, queue = Promise.resolve(), built = false, rolling = false, hopPid = null, wasMine = false;
 
   function gridPos(i) {
     if (i === 0) return [11, 11];
@@ -76,8 +76,11 @@ const UI = (() => {
     BOARD.forEach((b, i) => {
       const el = cells[i], pr = s.props[i];
       const ow = el.querySelector('.owner');
-      if (pr) { ow.hidden = false; ow.style.setProperty('--oc', Engine.P(s, pr.o).color); } else ow.hidden = true;
+      if (pr) { ow.hidden = false; ow.style.setProperty('--oc', Engine.P(s, pr.o).color); el.style.setProperty('--oc', Engine.P(s, pr.o).color); } else ow.hidden = true;
+      el.classList.toggle('owned', !!pr);
       el.classList.toggle('mort', !!(pr && pr.m));
+      const cp = s.players[s.turn];
+      el.classList.toggle('cur', !!cp && !cp.out && s.phase !== 'over' && shown[cp.id] === i);
       const band = el.querySelector('.band');
       if (band) band.innerHTML = pr && pr.h ? (pr.h === 5 ? '<span class="hs v"></span>' : '<span class="hs"></span>'.repeat(pr.h)) : '';
       const here = s.players.filter(p => !p.out && shown[p.id] === i);
@@ -89,15 +92,18 @@ const UI = (() => {
     if (p.avatar) return '<img class="av" style="--c:' + p.color + '" src="' + esc(p.avatar) + '" data-chadgang-id="' + esc(p.id) + '" alt="">';
     return '<div class="av tok big' + (TOKENS[p.tok % TOKENS.length].img ? ' chip' : '') + '" style="--c:' + p.color + '" data-chadgang-id="' + esc(p.id) + '">' + (TOKENS[p.tok % TOKENS.length].img ? '<img src="' + TOKENS[p.tok % TOKENS.length].img + '">' : TOKENS[p.tok % TOKENS.length].emoji) + '</div>';
   }
+  function pipColor(b) { return b.t === 'street' ? GROUPS[b.g].color : b.t === 'rail' ? '#3a3a4a' : '#b9b9c9'; }
   function renderPlayers(s) {
     $('#players').innerHTML = s.players.map((p, i) => {
-      const t = TOKENS[p.tok % TOKENS.length];
       const turn = i === s.turn && !p.out && s.phase !== 'over';
-      const owned = Object.keys(s.props).filter(k => s.props[k].o === p.id).length;
-      return '<div class="pl' + (turn ? ' turn' : '') + (p.out ? ' out' : '') + '" data-pid="' + esc(p.id) + '" style="--c:' + p.color + '">' +
-        avatarHTML(p) + '<div class="info"><div class="n">' + esc(p.name) + (p.id === G.meId ? ' (toi)' : '') + '</div>' +
-        '<div class="m">' + Engine.fmt(p.money) + '</div><div class="sub" style="margin:0">' + t.emoji + ' ' + owned + ' terrain' + (owned > 1 ? 's' : '') + '</div></div>' +
-        '<div>' + (p.jail >= 0 ? '🏨' : '') + (p.jc.length ? '🃏' : '') + (turn ? '🎲' : '') + '</div></div>';
+      const mine = Object.keys(s.props).map(Number).filter(k => s.props[k].o === p.id).sort((x, y) => x - y);
+      const pips = mine.map(k => '<i class="pip' + (s.props[k].m ? ' m' : '') + '" style="--pc:' + pipColor(BOARD[k]) + '" title="' + esc(BOARD[k].name) + '">' + (s.props[k].h ? (s.props[k].h === 5 ? '★' : s.props[k].h) : '') + '</i>').join('');
+      const badges = (p.jail >= 0 ? '<span class="bd" title="À l\'Hôtel">🏨</span>' : '') + (p.jc.length ? '<span class="bd" title="Carte libération">🃏</span>' : '') + (turn ? '<span class="bd">🎲</span>' : '');
+      return '<div class="pl' + (turn ? ' turn' : '') + (p.out ? ' out' : '') + (p.id === G.meId ? ' me' : '') + '" data-pid="' + esc(p.id) + '" style="--c:' + p.color + '">' +
+        avatarHTML(p) + '<div class="info"><div class="n">' + esc(p.name) + (p.id === G.meId ? ' <span class="you">toi</span>' : '') + '</div>' +
+        '<div class="m">' + (p.out ? '💀 Éliminé' : Engine.fmt(p.money)) + '</div>' +
+        (mine.length ? '<div class="pips">' + pips + '</div>' : '<div class="sub nopr">Aucun terrain</div>') + '</div>' +
+        '<div class="badges">' + badges + '</div></div>';
     }).join('');
     document.querySelectorAll('#players .pl').forEach(el => el.addEventListener('click', () => Modals.mine(el.dataset.pid)));
   }
@@ -117,6 +123,12 @@ const UI = (() => {
     const inGame = G.local || s.players.some(x => x.id === G.meId);
     let h = '';
     $('#whoTurn').textContent = s.phase === 'over' ? '🏆 Partie terminée' : '🎲 Tour de ' + s.players[s.turn].name;
+    const myTurn = !G.local && inGame && mine && s.phase !== 'over';
+    try { document.title = myTurn ? '🎲 À toi de jouer ! · Molopony' : 'Molopony'; } catch (e) {}
+    if (myTurn && !wasMine) { try { navigator.vibrate && navigator.vibrate(120); } catch (e) {} }
+    wasMine = myTurn;
+    const tb = s.phase === 'over' ? '' : '<div class="turnbar' + (myTurn ? ' mine' : '') + '" style="--c:' + np.color + '">' +
+      (myTurn ? '🎲 À toi de jouer !' : (G.local ? '🎲 ' + esc(np.name) + ', à toi !' : '⏳ ' + esc(np.name))) + '</div>';
 
     if (s.phase === 'over') {
       const w = Engine.P(s, s.winner);
@@ -130,7 +142,7 @@ const UI = (() => {
       switch (s.phase) {
         case 'roll':
           h = p.jail >= 0 ? '<div class="hint">🏨 À l\'Hôtel (' + p.jail + '/' + GAME.maxJailTurns + ') : fais un double ou paie.</div>' : '';
-          h += '<button class="btn go" data-a="roll">🎲 Lancer les dés</button>';
+          h += '<button class="btn go" data-a="roll">🎲 Lancer les dés <small class="kbd">Espace</small></button>';
           if (p.jail >= 0) h += '<div class="btnrow"><button class="btn" data-a="jailPay"' + (p.money < GAME.jailFine ? ' disabled' : '') + '>Payer ' + GAME.jailFine + ' €</button>' +
             (p.jc.length ? '<button class="btn" data-a="jailCard">🃏 Carte libération</button>' : '') + '</div>';
           break;
@@ -163,7 +175,7 @@ const UI = (() => {
         default: h = '<div class="hint">…</div>';
       }
     }
-    el.innerHTML = h;
+    el.innerHTML = tb + h;
     el.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => {
       FX.sound('turn'); const a = { a: b.dataset.a }; if (b.dataset.n) a.n = +b.dataset.n; act(a);
     }));
@@ -172,6 +184,15 @@ const UI = (() => {
       if (x === 'mine') Modals.mine(viewer(s)); else if (x === 'newgame') G.newGame(); else if (x === 'quit') G.quit();
     }));
   }
+
+  // Espace / Entrée : lancer les dés ou finir le tour (jamais acheter par accident)
+  addEventListener('keydown', ev => {
+    if (ev.key !== ' ' && ev.key !== 'Enter') return;
+    const t = ev.target; if (t && /^(INPUT|TEXTAREA|BUTTON|SELECT)$/.test(t.tagName)) return;
+    if (!$('#modal').hidden || $('#game').hidden) return;
+    const b = document.querySelector('#actions [data-a="roll"], #actions [data-a="end"]');
+    if (b && !b.disabled) { ev.preventDefault(); b.click(); }
+  });
 
   function act(a) {
     const s = G.state; if (!s) return;
